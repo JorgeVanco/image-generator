@@ -1,1 +1,1 @@
-python src/train.py --verbose --gpu --data-dir dataset --epochs 1 -m autoencoder
+python src/train.py --verbose --gpu --data-dir dataset -m autoencoder --batch 256 --epochs 1

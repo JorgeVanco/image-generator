@@ -1,6 +1,5 @@
 import importlib
 import argparse
-from multiprocessing import get_logger
 import os
 
 
@@ -29,15 +28,15 @@ schedulers = {"exponential": ExponentialLR}  # , "cosine": CosineAnnealingLR}
 # TODO Add more optimizers and schedulers as needed
 # TODO Add cosine annealing scheduler parameters
 
+# TODO Add Validation set
+
 
 def main(args) -> None:
 
     root_path = get_project_root(__file__)
     logging_dir = get_logging_dir(root_path, args)
-    print(logging_dir)
-    logger, writer = get_loggers(
-        logging_dir=logging_dir, verbose=args.verbose, args=args
-    )
+
+    logger, writer = get_loggers(logging_dir=logging_dir, verbose=args.verbose)
 
     dataset, dataloader = get_dataset_dataloader(
         root_path, args.data_dir, args.batch_size, args.num_workers, logger=logger
@@ -75,28 +74,26 @@ def main(args) -> None:
         device=device,
     )
 
+    # Save the model
+    model_path = os.path.join(logging_dir, "model.pth")
+    torch.save(model.state_dict(), model_path)
+
     # TODO Add checkpointing
 
     # TODO Add visualization of losses and gradients
     fig, axes = plt.subplots(2)
     axes[0].plot(torch.log10(torch.tensor(losses)))
+    axes[0].set_title("Losses")
     axes[1].plot(gradients)
+    axes[1].set_title("Gradients")
+    plt.tight_layout()
     try:
         fig.savefig(os.path.join(logging_dir, "losses.png"))
     except Exception as e:
         logger.error(e)
 
     # TODO Add visualization of model predictions
-    figure = plt.figure()
-    images_not, _ = next(iter(dataloader))
-    images = torch.stack([image.permute(2, 0, 1).int() for image in images_not[:8]])
-
-    grid = make_grid(images, nrow=4, padding=2)
-
-    plt.imshow(grid.permute(1, 2, 0))
-    figure.savefig(os.path.join(logging_dir, "original_images.png"))
-
-    model_module.plot_results(model, images_not, logging_dir=logging_dir, device=device)
+    model_module.plot_results(model, dataloader, logging_dir=logging_dir, device=device)
 
 
 if __name__ == "__main__":

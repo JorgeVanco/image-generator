@@ -54,24 +54,35 @@ def get_model(pretrained=False) -> nn.Sequential:
     return model
 
 
-def plot_results(model, images_not, logging_dir, device="cpu") -> None:
+@torch.no_grad()
+def plot_results(model, dataloader, logging_dir, device="cpu") -> None:
     # TODO Add better visualization
     autoencoder = model
     autoencoder.eval()
-    with torch.no_grad():
-        images_not = images_not.to(device)
-        output = autoencoder(images_not[:8])
-        output = torch.stack([image.permute(2, 0, 1) for image in output])
-        grid = make_grid(output, nrow=4, padding=2)
 
-        save_image(grid, os.path.join(logging_dir, "reconstructed_images.png"))
+    figure = plt.figure()
+    dataset_images, _ = next(iter(dataloader))
+    dataset_images = dataset_images[:8]
 
-    with torch.no_grad():
-        images_not = torch.randint(0, 255, (8, 30), dtype=torch.float32, device=device)
-        output = autoencoder[1](images_not[:8])
-        output = torch.stack([image.permute(2, 0, 1) for image in output])
-        grid = make_grid(output, nrow=4, padding=2)
+    images = torch.stack([image.permute(2, 0, 1).int() for image in dataset_images])
+    dataset_images = dataset_images.to(device)
+    output = autoencoder(dataset_images).cpu()
+    output = torch.stack([image.permute(2, 0, 1).int() for image in output])
+    images = torch.cat([images, output], dim=0)
 
-        save_image(
-            grid, os.path.join(logging_dir, "random_images.png"), nrow=4, padding=2
-        )
+    grid = make_grid(images, nrow=8, padding=2)
+
+    figure = plt.figure()
+    plt.title("Reconstructed Images")
+    plt.imshow(grid.permute(1, 2, 0).cpu())
+    figure.savefig(os.path.join(logging_dir, "images.png"))
+
+    dataset_images = torch.randint(0, 255, (16, 30), dtype=torch.float32, device=device)
+    output = autoencoder[1](dataset_images).cpu()
+    output = torch.stack([image.permute(2, 0, 1).int() for image in output])
+
+    grid = make_grid(output, nrow=8, padding=2)
+    figure = plt.figure()
+    plt.title("Randomly Sampled Images")
+    plt.imshow(grid.permute(1, 2, 0).cpu())
+    figure.savefig(os.path.join(logging_dir, "random_images.png"))
