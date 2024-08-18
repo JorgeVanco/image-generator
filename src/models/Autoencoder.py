@@ -3,8 +3,9 @@ import torch.nn as nn
 from torch._tensor import Tensor
 import torch
 from torch.nn.functional import mse_loss
-from torchvision.utils import make_grid
+from torchvision.utils import make_grid, save_image
 import matplotlib.pyplot as plt
+import os
 
 
 class Encoder(nn.Module):
@@ -53,20 +54,24 @@ def get_model(pretrained=False) -> nn.Sequential:
     return model
 
 
-def plot_results(model, images_not) -> None:
+def plot_results(model, images_not, logging_dir, device="cpu") -> None:
+    # TODO Add better visualization
     autoencoder = model
     autoencoder.eval()
     with torch.no_grad():
+        images_not = images_not.to(device)
         output = autoencoder(images_not[:8])
-        output = torch.stack([image.permute(2, 0, 1).int() for image in output])
+        output = torch.stack([image.permute(2, 0, 1) for image in output])
         grid = make_grid(output, nrow=4, padding=2)
-        plt.imshow(grid.permute(1, 2, 0))
-        plt.show()
+
+        save_image(grid, os.path.join(logging_dir, "reconstructed_images.png"))
 
     with torch.no_grad():
-        images_not = torch.randn(8, 30)
+        images_not = torch.randint(0, 255, (8, 30), dtype=torch.float32, device=device)
         output = autoencoder[1](images_not[:8])
-        output = torch.stack([image.permute(2, 0, 1).int() for image in output])
+        output = torch.stack([image.permute(2, 0, 1) for image in output])
         grid = make_grid(output, nrow=4, padding=2)
-        plt.imshow(grid.permute(1, 2, 0))
-        plt.show()
+
+        save_image(
+            grid, os.path.join(logging_dir, "random_images.png"), nrow=4, padding=2
+        )

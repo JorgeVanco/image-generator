@@ -1,9 +1,16 @@
 import importlib
 import argparse
+from multiprocessing import get_logger
 import os
-from pyexpat import model
 
-from utils import get_project_root, download_dataset, train_loop
+
+from utils import (
+    get_project_root,
+    train_loop,
+    get_loggers,
+    get_dataset_dataloader,
+    get_logging_dir,
+)
 
 from data_processing.Dataset import PixelDataset
 import torch
@@ -23,39 +30,29 @@ schedulers = {"exponential": ExponentialLR}  # , "cosine": CosineAnnealingLR}
 # TODO Add cosine annealing scheduler parameters
 
 
-def get_dataset_dataloader(
-    root_path: str, data_dir: str, batch_size: int, num_workers: int
-) -> DataLoader:
-    dataset_path = os.path.join(root_path, data_dir)
-    sprites_path = os.path.join(dataset_path, "sprites.npy")
-    labels_path = os.path.join(dataset_path, "sprites_labels.npy")
-
-    if not os.path.exists(sprites_path):
-        print("Dataset not found. Downloading...")
-        download_dataset(dataset_path)
-    else:
-        print("Dataset found.")
-
-    dataset = PixelDataset(sprites_path=sprites_path, labels_path=labels_path)
-    dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
-    )
-    return dataset, dataloader
-
-
 def main(args) -> None:
 
     root_path = get_project_root(__file__)
-
-    dataset, dataloader = get_dataset_dataloader(
-        root_path, args.data_dir, args.batch_size, args.num_workers
+    logging_dir = get_logging_dir(root_path, args)
+    print(logging_dir)
+    logger, writer = get_loggers(
+        logging_dir=logging_dir, verbose=args.verbose, args=args
     )
 
-    print(f"Dataset size: {len(dataset)}")
-    print(f"Number of batches: {len(dataloader)}")
+    dataset, dataloader = get_dataset_dataloader(
+        root_path, args.data_dir, args.batch_size, args.num_workers, logger=logger
+    )
+
+    device = torch.device("cpu")
+    if args.gpu:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            logger.info(f"Using GPU: {torch.cuda.get_device_name()}")
+        else:
+            logger.warning("GPU not available. Using CPU.")
 
     model_module = importlib.import_module(f"models.{args.model}")
-    model = model_module.get_model(pretrained=args.pretrained)
+    model = model_module.get_model(pretrained=args.pretrained).to(device)
 
     optimizer = optimizers[args.optimizer]
     # TODO Change how the optimizer is initialized based on the scheduler selected
@@ -74,26 +71,32 @@ def main(args) -> None:
         optimizer=optimizer,
         scheduler=scheduler,
         epochs=args.epochs,
+        logger=logger,
+        device=device,
     )
 
-    # TODO Add logging and checkpointing
+    # TODO Add checkpointing
+
+    # TODO Add visualization of losses and gradients
     fig, axes = plt.subplots(2)
     axes[0].plot(torch.log10(torch.tensor(losses)))
     axes[1].plot(gradients)
-    plt.show()
+    try:
+        fig.savefig(os.path.join(logging_dir, "losses.png"))
+    except Exception as e:
+        logger.error(e)
 
     # TODO Add visualization of model predictions
+    figure = plt.figure()
     images_not, _ = next(iter(dataloader))
     images = torch.stack([image.permute(2, 0, 1).int() for image in images_not[:8]])
-    print(images[3].int().shape)
-    print(images.shape)
+
     grid = make_grid(images, nrow=4, padding=2)
-    print(grid.shape)
+
     plt.imshow(grid.permute(1, 2, 0))
+    figure.savefig(os.path.join(logging_dir, "original_images.png"))
 
-    plt.show()
-
-    model_module.plot_results(model, images_not)
+    model_module.plot_results(model, images_not, logging_dir=logging_dir, device=device)
 
 
 if __name__ == "__main__":
@@ -186,7 +189,7 @@ if __name__ == "__main__":
         help="How often (in epochs) to save checkpoints",
     )
     log_params_group.add_argument(
-        "--log-dir", type=str, default="./logs", help="Directory to save training logs"
+        "--log-dir", type=str, default="logs", help="Directory to save training logs"
     )
     log_params_group.add_argument(
         "--resume", type=str, help="Path to a checkpoint to resume training from"
@@ -197,7 +200,10 @@ if __name__ == "__main__":
     miscellaneous_group.add_argument(
         "--seed", type=int, default=42, help="Random seed for reproducibility"
     )
-    miscellaneous_group.add_argument("--gpu", type=int, help="GPU id to use (if any)")
+    # miscellaneous_group.add_argument("--gpu", type=int, help="GPU id to use (if any)")
+    miscellaneous_group.add_argument(
+        "--gpu", action="store_true", help="Use GPU for training"
+    )
 
     # Parse the arguments
     args = parser.parse_args()
