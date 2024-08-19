@@ -3,6 +3,7 @@ import os
 from utils import download_dataset
 from data_processing.Dataset import PixelDataset
 from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 
 
 def get_gradient_norm(model):
@@ -50,7 +51,7 @@ def train_loop(
     losses = []
     gradients = []
     try:
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             running_loss = 0.0
             for batch_idx, (X, label) in enumerate(dataloader):
                 # Compute prediction error
