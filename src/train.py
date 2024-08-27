@@ -138,7 +138,7 @@ if __name__ == "__main__":
         help="Model architecture",
     )
     model_params_group.add_argument(
-        "--pretrained", action="store_true", help="Use pretrained model"
+        "--pretrained", type="str", help="Pretrained model weights path"
     )
 
     # Training parameters

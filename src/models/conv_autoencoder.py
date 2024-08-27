@@ -135,7 +135,8 @@ def train_step(model, X) -> Tensor:
     return loss
 
 
-def get_model(pretrained=False) -> nn.Sequential:
-    # TODO Add pretrained model loading
+def get_model(pretrained=None) -> nn.Sequential:
     model = ConvAutoEncoder()
+    if pretrained:
+        model.load_state_dict(pretrained)
     return model
