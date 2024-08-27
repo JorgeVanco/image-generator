@@ -33,7 +33,7 @@ class Decoder(nn.Module):
             nn.ReLU(),
             nn.Linear(100, 3 * 16 * 16),
             nn.ReLU(),
-            nn.Unflatten(1, (16, 16, 3)),
+            nn.Unflatten(1, (3, 16, 16)),
         )
 
     def forward(self, x: Tensor) -> Tensor:
@@ -62,10 +62,10 @@ class AutoEncoder(nn.Module):
         dataset_images, _ = next(iter(dataloader))
         dataset_images = dataset_images[:n_images]
 
-        images = torch.stack([image.permute(2, 0, 1).int() for image in dataset_images])
+        images = torch.stack([image.int() for image in dataset_images])
         dataset_images = dataset_images.to(device)
         output = self(dataset_images).cpu()
-        output = torch.stack([image.permute(2, 0, 1).int() for image in output])
+        output = torch.stack([image.int() for image in output])
         images = torch.cat([images, output], dim=0)
 
         grid = make_grid(images, nrow=8, padding=2)
@@ -77,7 +77,7 @@ class AutoEncoder(nn.Module):
             0, 255, (16, 30), dtype=torch.float32, device=device
         )
         output = self.decoder(dataset_images).cpu()
-        output = torch.stack([image.permute(2, 0, 1).int() for image in output])
+        output = torch.stack([image.int() for image in output])
 
         grid = make_grid(output, nrow=8, padding=2)
 
@@ -98,51 +98,3 @@ def get_model(pretrained=False) -> nn.Sequential:
     # TODO Add pretrained model loading
     model = AutoEncoder()
     return model
-
-
-@torch.no_grad()
-def plot_results(model, dataloader, logging_dir, device="cpu", writer=None) -> None:
-    # TODO Add better visualization
-    autoencoder = model
-    autoencoder.eval()
-
-    figure = plt.figure()
-    dataset_images, _ = next(iter(dataloader))
-    dataset_images = dataset_images[:8]
-
-    images = torch.stack([image.permute(2, 0, 1).int() for image in dataset_images])
-    dataset_images = dataset_images.to(device)
-    output = autoencoder(dataset_images).cpu()
-    output = torch.stack([image.permute(2, 0, 1).int() for image in output])
-    images = torch.cat([images, output], dim=0)
-
-    grid = make_grid(images, nrow=8, padding=2)
-    figure = plt.figure()
-    plt.title("Reconstructed Images")
-    plt.imshow(grid.permute(1, 2, 0).cpu())
-    figure.savefig(os.path.join(logging_dir, "images.png"))
-    if writer:
-        # writer.add_image("Reconstructed Images", grid, 0)
-        # try:
-        #     writer.add_image("Reconstructed Images", grid.cpu(), -1)
-        # except Exception as e:
-        #     print(e)
-        writer.add_figure("Reconstructed Images", figure, -1)
-
-    dataset_images = torch.randint(0, 255, (16, 30), dtype=torch.float32, device=device)
-    output = autoencoder.decoder(dataset_images).cpu()
-    output = torch.stack([image.permute(2, 0, 1).int() for image in output])
-
-    grid = make_grid(output, nrow=8, padding=2)
-
-    figure = plt.figure()
-    plt.title("Randomly Sampled Images")
-    plt.imshow(grid.permute(1, 2, 0).cpu())
-    if writer:
-        #     writer.add_image("Randomly Sampled Images", grid, 0)
-        #     try:
-        #         writer.add_image("Randomly Sampled Images", grid.cpu(), -1)
-        #     except Exception as e:
-        #         print(e)
-        writer.add_figure("Randomly Sampled Images", figure, -1)
-    figure.savefig(os.path.join(logging_dir, "random_images.png"))

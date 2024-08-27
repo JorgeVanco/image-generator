@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from utils import read_npy
 
 
+# TODO Change image to -1 1
 class PixelDataset(Dataset):
     def __init__(self, sprites_path, labels_path) -> None:
         self.sprites = read_npy(sprites_path)
@@ -12,6 +13,6 @@ class PixelDataset(Dataset):
         return len(self.sprites)
 
     def __getitem__(self, index) -> tuple[Tensor, Tensor]:
-        image = self.sprites[index]
+        image = self.sprites[index].permute(2, 0, 1)
         label = self.labels[index]
         return image, label

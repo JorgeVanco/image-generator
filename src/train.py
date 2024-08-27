@@ -29,6 +29,7 @@ schedulers = {"exponential": ExponentialLR}  # , "cosine": CosineAnnealingLR}
 # TODO Add cosine annealing scheduler parameters
 
 # TODO Add Validation set
+# TODO Add overfitt feature
 
 
 def main(args) -> None:
@@ -133,7 +134,7 @@ if __name__ == "__main__":
         "-m",
         type=str,
         required=True,
-        choices=["autoencoder"],
+        choices=["autoencoder", "conv_autoencoder"],
         help="Model architecture",
     )
     model_params_group.add_argument(
