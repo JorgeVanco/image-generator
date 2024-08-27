@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from torch.utils.tensorboard import SummaryWriter
 
 
 def get_logging_dir(root_path: str, args) -> str:
@@ -19,7 +20,9 @@ def get_logging_dir(root_path: str, args) -> str:
     return logging_dir
 
 
-def get_loggers(logging_dir, verbose: bool = False) -> logging.Logger:
+def get_loggers(
+    logging_dir, verbose: bool = False, use_writer: bool = False
+) -> logging.Logger:
     # TODO Add support for Tensorboard Writer
 
     logging_file = os.path.join(logging_dir, "training.log")
@@ -47,6 +50,7 @@ def get_loggers(logging_dir, verbose: bool = False) -> logging.Logger:
 
     if verbose:
         logger.addHandler(console_handler)
-
     writer = None
+    if use_writer:
+        writer = SummaryWriter(logging_dir)
     return logger, writer

@@ -36,7 +36,9 @@ def main(args) -> None:
     root_path = get_project_root(__file__)
     logging_dir = get_logging_dir(root_path, args)
 
-    logger, writer = get_loggers(logging_dir=logging_dir, verbose=args.verbose)
+    logger, writer = get_loggers(
+        logging_dir=logging_dir, verbose=args.verbose, writer=args.writer
+    )
 
     dataset, dataloader = get_dataset_dataloader(
         root_path, args.data_dir, args.batch_size, args.num_workers, logger=logger
@@ -71,6 +73,7 @@ def main(args) -> None:
         scheduler=scheduler,
         epochs=args.epochs,
         logger=logger,
+        writer=writer,
         device=device,
     )
 
@@ -190,6 +193,9 @@ if __name__ == "__main__":
     )
     log_params_group.add_argument(
         "--resume", type=str, help="Path to a checkpoint to resume training from"
+    )
+    log_params_group.add_argument(
+        "--writer", action="store_true", help="Use Tensorboard writer"
     )
 
     # Miscellaneous

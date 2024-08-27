@@ -43,6 +43,7 @@ def train_loop(
     scheduler,
     epochs=5,
     logger=None,
+    writer=None,
     device="cpu",
 ) -> tuple[list, list]:
     model.train()
@@ -68,14 +69,24 @@ def train_loop(
                 gradients.append(get_gradient_norm(model))
                 losses.append(loss.item())
                 running_loss += loss.item()
-                if logger and batch_idx % 32 == 0:
+                if batch_idx % 32 == 0:
                     loss, current = loss.item(), batch_idx * len(X)
-                    logger.info(
-                        f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss:.4f}"
-                    )
+                    if logger:
+                        logger.info(
+                            f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss:.4f}"
+                        )
+                    if writer:
+                        writer.add_scalar(
+                            "Training loss", loss, epoch * len(dataloader) + batch_idx
+                        )
 
             avg_loss = running_loss / len(dataloader)
-            logger.info(f"Epoch [{epoch:>5d}/{epochs}], Average Loss: {avg_loss:.4f}")
+            if logger:
+                logger.info(
+                    f"Epoch [{epoch:>5d}/{epochs}], Average Loss: {avg_loss:.4f}"
+                )
+            if writer:
+                writer.add_scalar("Average training loss", avg_loss, epoch)
             scheduler.step()
 
     except KeyboardInterrupt:
