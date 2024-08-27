@@ -37,7 +37,7 @@ def main(args) -> None:
     logging_dir = get_logging_dir(root_path, args)
 
     logger, writer = get_loggers(
-        logging_dir=logging_dir, verbose=args.verbose, writer=args.writer
+        logging_dir=logging_dir, verbose=args.verbose, use_writer=args.writer
     )
 
     dataset, dataloader = get_dataset_dataloader(
@@ -83,7 +83,6 @@ def main(args) -> None:
 
     # TODO Add checkpointing
 
-    # TODO Add visualization of losses and gradients
     fig, axes = plt.subplots(2)
     axes[0].plot(torch.log10(torch.tensor(losses)))
     axes[0].set_title("Losses")
@@ -95,8 +94,13 @@ def main(args) -> None:
     except Exception as e:
         logger.error(e)
 
-    # TODO Add visualization of model predictions
-    model_module.plot_results(model, dataloader, logging_dir=logging_dir, device=device)
+    # Save images to folder
+    images = model.sample_images(dataloader, n_images=8, device=device)
+    for figure, title in images:
+        figure.savefig(os.path.join(logging_dir, title + ".png"))
+
+    input("Press enter to finish")
+    writer.close()
 
 
 if __name__ == "__main__":

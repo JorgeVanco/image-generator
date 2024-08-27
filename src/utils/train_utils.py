@@ -63,23 +63,33 @@ def train_loop(
                 optimizer.zero_grad()
                 loss.backward()
 
-                clip_grad_norm_(model.parameters(), 1)
+                clip_grad_norm_(model.parameters(), 5)
                 optimizer.step()
 
-                gradients.append(get_gradient_norm(model))
+                gradient = get_gradient_norm(model)
+                gradients.append(gradient)
                 losses.append(loss.item())
                 running_loss += loss.item()
-                if batch_idx % 32 == 0:
-                    loss, current = loss.item(), batch_idx * len(X)
-                    if logger:
-                        logger.info(
-                            f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss:.4f}"
-                        )
-                    if writer:
-                        writer.add_scalar(
-                            "Training loss", loss, epoch * len(dataloader) + batch_idx
-                        )
 
+                # Logging
+                if logger and batch_idx % 32 == 0:
+                    loss, current = loss.item(), batch_idx * len(X)
+                    logger.info(
+                        f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss:.4f}"
+                    )
+
+                if writer:
+                    writer.add_scalar(
+                        "Training loss", loss, epoch * len(dataloader) + batch_idx
+                    )
+                    writer.add_scalar(
+                        "Gradients", gradient, epoch * len(dataloader) + batch_idx
+                    )
+
+            # Take a step in the scheduler after each epoch
+            scheduler.step()
+
+            # Logging after each epoch
             avg_loss = running_loss / len(dataloader)
             if logger:
                 logger.info(
@@ -87,7 +97,11 @@ def train_loop(
                 )
             if writer:
                 writer.add_scalar("Average training loss", avg_loss, epoch)
-            scheduler.step()
+
+                # Log images
+                images = model.sample_images(dataloader, n_images=8, device=device)
+                for figure, title in images:
+                    writer.add_figure(title, figure, epoch)
 
     except KeyboardInterrupt:
         logger.warning("Training interrupted.")
