@@ -71,7 +71,7 @@ class ConvDecoder(nn.Module):
             # nn.Conv2d(16, 3, kernel_size=(2, 2), padding="same"),  # mx3x16x16
             nn.Flatten(1),
             nn.Linear(16 * 16 * 16, 3 * 16 * 16),
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Unflatten(1, (3, 16, 16)),
         )
 

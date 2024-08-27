@@ -100,8 +100,9 @@ def main(args) -> None:
     for figure, title in images:
         figure.savefig(os.path.join(logging_dir, title + ".png"))
 
-    input("Press enter to finish")
-    writer.close()
+    if writer:
+        input("Press enter to finish")
+        writer.close()
 
 
 if __name__ == "__main__":
@@ -138,7 +139,7 @@ if __name__ == "__main__":
         help="Model architecture",
     )
     model_params_group.add_argument(
-        "--pretrained", type="str", help="Pretrained model weights path"
+        "--pretrained", type=str, help="Pretrained model weights path"
     )
 
     # Training parameters

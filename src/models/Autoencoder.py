@@ -32,7 +32,7 @@ class Decoder(nn.Module):
             nn.Linear(30, 100),
             nn.ReLU(),
             nn.Linear(100, 3 * 16 * 16),
-            nn.ReLU(),
+            nn.Sigmoid(),
             nn.Unflatten(1, (3, 16, 16)),
         )
 
@@ -62,28 +62,27 @@ class AutoEncoder(nn.Module):
         dataset_images, _ = next(iter(dataloader))
         dataset_images = dataset_images[:n_images]
 
-        images = torch.stack([image.int() for image in dataset_images])
+        images = torch.stack([image for image in dataset_images])
         dataset_images = dataset_images.to(device)
         output = self(dataset_images).cpu()
-        output = torch.stack([image.int() for image in output])
+        output = torch.stack([image for image in output])
         images = torch.cat([images, output], dim=0)
 
         grid = make_grid(images, nrow=8, padding=2)
         figure1 = plt.figure()
         plt.title("Reconstructed Images")
-        plt.imshow(grid.permute(1, 2, 0).cpu())
-
+        plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
         dataset_images = torch.randint(
             0, 255, (16, 30), dtype=torch.float32, device=device
         )
         output = self.decoder(dataset_images).cpu()
-        output = torch.stack([image.int() for image in output])
+        output = torch.stack([image for image in output])
 
         grid = make_grid(output, nrow=8, padding=2)
 
         figure2 = plt.figure()
         plt.title("Randomly Sampled Images")
-        plt.imshow(grid.permute(1, 2, 0).cpu())
+        plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
 
         return [(figure1, "Reconstructed Images"), (figure2, "Randomly Sampled Images")]
 
