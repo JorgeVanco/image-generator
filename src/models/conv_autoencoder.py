@@ -97,14 +97,13 @@ class ConvAutoEncoder(nn.Module):
     ) -> list[tuple[plt.Figure, str]]:
         self.eval()
 
-        figure = plt.figure()
         dataset_images, _ = next(iter(dataloader))
         dataset_images = dataset_images[:n_images]
 
-        images = torch.stack([image.int() for image in dataset_images])
+        images = torch.stack([image for image in dataset_images])
         dataset_images = dataset_images.to(device)
         output = self(dataset_images).cpu()
-        output = torch.stack([image.int() for image in output])
+        output = torch.stack([image for image in output])
         images = torch.cat([images, output], dim=0)
 
         grid = make_grid(images, nrow=8, padding=2)
@@ -116,7 +115,7 @@ class ConvAutoEncoder(nn.Module):
             0, 255, (16, 128), dtype=torch.float32, device=device
         )
         output = self.decoder(dataset_images).cpu()
-        output = torch.stack([image.int() for image in output])
+        output = torch.stack([image for image in output])
 
         grid = make_grid(output, nrow=8, padding=2)
 

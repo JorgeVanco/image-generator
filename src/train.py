@@ -86,7 +86,16 @@ def main(args) -> None:
     model_path = os.path.join(logging_dir, "model.pth")
     torch.save(model.state_dict(), model_path)
 
-    # TODO Add checkpointing
+    # TODO Add chekpoints
+    # torch.save(
+    #     {
+    #         "epoch": EPOCH,
+    #         "model_state_dict": model.state_dict(),
+    #         "optimizer_state_dict": optimizer.state_dict(),
+    #         "loss": LOSS,
+    #     },
+    #     PATH,
+    # )
 
     fig, axes = plt.subplots(2)
     axes[0].plot(torch.log10(torch.tensor(losses)))
