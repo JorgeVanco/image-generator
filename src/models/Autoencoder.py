@@ -55,10 +55,8 @@ class AutoEncoder(nn.Module):
     def sample_images(
         self, dataloader, n_images=8, device="cpu"
     ) -> list[tuple[plt.Figure, str]]:
-        # TODO Clip generated images
         self.eval()
 
-        figure = plt.figure()
         dataset_images, _ = next(iter(dataloader))
         dataset_images = dataset_images[:n_images]
 

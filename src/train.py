@@ -29,7 +29,6 @@ schedulers = {"exponential": ExponentialLR}  # , "cosine": CosineAnnealingLR}
 # TODO Add cosine annealing scheduler parameters
 
 # TODO Add Validation set
-# TODO Add overfitt feature
 
 
 def main(args) -> None:
@@ -42,7 +41,12 @@ def main(args) -> None:
     )
 
     dataset, dataloader = get_dataset_dataloader(
-        root_path, args.data_dir, args.batch_size, args.num_workers, logger=logger
+        root_path,
+        args.data_dir,
+        args.batch_size,
+        args.num_workers,
+        overfit=args.overfit,
+        logger=logger,
     )
 
     device = torch.device("cpu")
@@ -99,7 +103,7 @@ def main(args) -> None:
     images = model.sample_images(dataloader, n_images=8, device=device)
     for figure, title in images:
         figure.savefig(os.path.join(logging_dir, title + ".png"))
-
+        plt.close(figure)
     if writer:
         input("Press enter to finish")
         writer.close()
@@ -125,7 +129,7 @@ if __name__ == "__main__":
         "--batch-size", type=int, default=32, help="Batch size for training"
     )
     data_params_group.add_argument(
-        "--num-workers", type=int, default=4, help="Number of workers for data loading"
+        "--num-workers", type=int, default=0, help="Number of workers for data loading"
     )
 
     # Model parameters
@@ -178,6 +182,11 @@ if __name__ == "__main__":
         type=float,
         default=0.95,
         help="Gamma parameter for the learning rate exponential scheduler",
+    )
+    training_params_group.add_argument(
+        "--overfit",
+        action="store_true",
+        help="Overfits to one single batch to test model",
     )
 
     # Checkpointing and logging

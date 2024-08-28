@@ -1,5 +1,7 @@
 python src/train.py --verbose --gpu --data-dir dataset -m autoencoder --batch 256 --epochs 1
 python src/train.py --verbose --gpu --writer --data-dir dataset -m autoencoder --batch 256 --epochs 1
 
+python src/train.py --overfit --gpu --writer --data-dir dataset -m autoencoder --batch 8 --epochs 100
+
 tensorboard --logdir=./logs/autoencoder
 tensorboard --logdir=./logs/autoencoder --bind_all

@@ -2,7 +2,7 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 import os
 from utils import download_dataset
 from data_processing.Dataset import PixelDataset
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from tqdm.auto import tqdm
 
 
@@ -17,8 +17,14 @@ def get_gradient_norm(model):
 
 
 def get_dataset_dataloader(
-    root_path: str, data_dir: str, batch_size: int, num_workers: int, logger=None
+    root_path: str,
+    data_dir: str,
+    batch_size: int,
+    num_workers: int,
+    overfit: bool = False,
+    logger=None,
 ) -> DataLoader:
+    # TODO Test speed of num_workers with large data
     dataset_path = os.path.join(root_path, data_dir)
     sprites_path = os.path.join(dataset_path, "sprites.npy")
     labels_path = os.path.join(dataset_path, "sprites_labels.npy")
@@ -29,6 +35,8 @@ def get_dataset_dataloader(
         download_dataset(dataset_path)
 
     dataset = PixelDataset(sprites_path=sprites_path, labels_path=labels_path)
+    if overfit:
+        dataset = Subset(dataset, range(batch_size))
     dataloader = DataLoader(
         dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
@@ -96,13 +104,11 @@ def train_loop(
                     f"Epoch [{epoch:>5d}/{epochs}], Average Loss: {avg_loss:.4f}"
                 )
             if writer:
-                writer.add_scalar("Average training loss", avg_loss, epoch)
-
                 # Log images
                 images = model.sample_images(dataloader, n_images=8, device=device)
+                model.train()
                 for figure, title in images:
                     writer.add_figure(title, figure, epoch)
-
     except KeyboardInterrupt:
         logger.warning("Training interrupted.")
 

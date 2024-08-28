@@ -4,7 +4,6 @@ from utils import read_npy
 import torchvision.transforms as transforms
 
 
-# TODO Change image to -1 1
 class PixelDataset(Dataset):
     def __init__(self, sprites_path, labels_path) -> None:
         self.sprites = read_npy(sprites_path)

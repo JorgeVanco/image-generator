@@ -95,7 +95,6 @@ class ConvAutoEncoder(nn.Module):
     def sample_images(
         self, dataloader, n_images=8, device="cpu"
     ) -> list[tuple[plt.Figure, str]]:
-        # TODO Clip generated images
         self.eval()
 
         figure = plt.figure()
