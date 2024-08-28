@@ -4,6 +4,7 @@ from utils import download_dataset
 from data_processing.Dataset import PixelDataset
 from torch.utils.data import DataLoader, Subset
 from tqdm.auto import tqdm
+from torch import save
 
 
 def get_gradient_norm(model):
@@ -53,6 +54,7 @@ def train_loop(
     logger=None,
     writer=None,
     device="cpu",
+    checkpoint_path=None,
 ) -> tuple[list, list]:
     model.train()
     model.to(device)
@@ -81,14 +83,14 @@ def train_loop(
 
                 # Logging
                 if logger and batch_idx % 32 == 0:
-                    loss, current = loss.item(), batch_idx * len(X)
+                    loss_item, current = loss.item(), batch_idx * len(X)
                     logger.info(
-                        f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss:.4f}"
+                        f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss_item:.4f}"
                     )
 
                 if writer:
                     writer.add_scalar(
-                        "Training loss", loss, epoch * len(dataloader) + batch_idx
+                        "Training loss", loss_item, epoch * len(dataloader) + batch_idx
                     )
                     writer.add_scalar(
                         "Gradients", gradient, epoch * len(dataloader) + batch_idx
@@ -111,5 +113,17 @@ def train_loop(
                     writer.add_figure(title, figure, epoch)
     except KeyboardInterrupt:
         logger.warning("Training interrupted.")
+
+    # TODO Improve chekpoints
+    if checkpoint_path is not None:
+        save(
+            {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "loss": loss.item(),
+            },
+            checkpoint_path,
+        )
 
     return losses, gradients

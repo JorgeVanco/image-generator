@@ -70,6 +70,8 @@ def main(args) -> None:
     )
     scheduler = schedulers[args.scheduler](optimizer, gamma=args.scheduler_gamma)
 
+    # TODO Add load chekpoints
+
     losses, gradients = train_loop(
         dataloader=dataloader,
         model=model,
@@ -80,22 +82,12 @@ def main(args) -> None:
         logger=logger,
         writer=writer,
         device=device,
+        checkpoint_path=os.path.join(logging_dir, "checkpoint.pth"),
     )
 
     # Save the model
     model_path = os.path.join(logging_dir, "model.pth")
     torch.save(model.state_dict(), model_path)
-
-    # TODO Add chekpoints
-    # torch.save(
-    #     {
-    #         "epoch": EPOCH,
-    #         "model_state_dict": model.state_dict(),
-    #         "optimizer_state_dict": optimizer.state_dict(),
-    #         "loss": LOSS,
-    #     },
-    #     PATH,
-    # )
 
     fig, axes = plt.subplots(2)
     axes[0].plot(torch.log10(torch.tensor(losses)))
