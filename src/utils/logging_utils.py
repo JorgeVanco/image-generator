@@ -64,7 +64,8 @@ def get_loggers(
         logger.addHandler(console_handler)
     writer = None
     if use_writer:
-        writer_logging = logging_dir.rsplit("/", 1)[0]
+        writer_logging = logging_dir  # .rsplit("/", 1)[0]
+        print(writer_logging)
         writer = MyWriter(writer_logging)
 
     return logger, writer

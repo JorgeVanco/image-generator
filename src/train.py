@@ -34,7 +34,13 @@ schedulers = {"exponential": ExponentialLR}  # , "cosine": CosineAnnealingLR}
 def main(args) -> None:
 
     root_path = get_project_root(__file__)
-    logging_dir = get_logging_dir(root_path, args)
+
+    if args.checkpoint_dir is None:
+        logging_dir = get_logging_dir(root_path, args)
+    else:
+        logging_dir = args.checkpoint_dir
+
+    checkpoint_path = os.path.join(logging_dir, "checkpoint.pth")
 
     logger, writer = get_loggers(
         logging_dir=logging_dir, verbose=args.verbose, use_writer=args.writer
@@ -71,6 +77,15 @@ def main(args) -> None:
     scheduler = schedulers[args.scheduler](optimizer, gamma=args.scheduler_gamma)
 
     # TODO Add load chekpoints
+    if args.checkpoint_dir is not None:
+        checkpoint = torch.load(checkpoint_path, weights_only=True)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        epoch = checkpoint["epoch"]
+        loss = checkpoint["loss"]
+    else:
+        epoch = 0
+        loss = None
 
     losses, gradients = train_loop(
         dataloader=dataloader,
@@ -82,7 +97,8 @@ def main(args) -> None:
         logger=logger,
         writer=writer,
         device=device,
-        checkpoint_path=os.path.join(logging_dir, "checkpoint.pth"),
+        checkpoint_path=checkpoint_path,
+        starting_epoch=epoch,
     )
 
     # Save the model
@@ -103,7 +119,11 @@ def main(args) -> None:
     # Save images to folder
     images = model.sample_images(dataloader, n_images=8, device=device)
     for figure, title in images:
-        figure.savefig(os.path.join(logging_dir, title + ".png"))
+        name = title
+        if args.checkpoint_dir is not None:
+            name += "_pretrained"
+
+        figure.savefig(os.path.join(logging_dir, name + ".png"))
         plt.close(figure)
     if writer:
         input("Press enter to finish")
@@ -193,10 +213,10 @@ if __name__ == "__main__":
     # Checkpointing and logging
     log_params_group = parser.add_argument_group("Checkpointing and logging")
     log_params_group.add_argument(
-        "--save-dir",
+        "--checkpoint-dir",
         type=str,
-        default="./checkpoints",
-        help="Directory to save model checkpoints",
+        # default="./checkpoints",
+        help="Path to load model checkpoints",
     )
     log_params_group.add_argument(
         "--save-frequency",

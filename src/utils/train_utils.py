@@ -55,6 +55,7 @@ def train_loop(
     writer=None,
     device="cpu",
     checkpoint_path=None,
+    starting_epoch=0,
 ) -> tuple[list, list]:
     model.train()
     model.to(device)
@@ -62,7 +63,7 @@ def train_loop(
     losses = []
     gradients = []
     try:
-        for epoch in tqdm(range(epochs)):
+        for epoch in tqdm(range(starting_epoch, epochs)):
             running_loss = 0.0
             for batch_idx, (X, label) in enumerate(dataloader):
                 # Compute prediction error
