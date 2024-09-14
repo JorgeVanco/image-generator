@@ -22,6 +22,7 @@ After Pooling: W - F + 1
 class ConvEncoder(nn.Module):
     def __init__(self) -> None:
         super(ConvEncoder, self).__init__()
+        self.z_dim = 128
         self.encoder = nn.Sequential(
             nn.Conv2d(
                 in_channels=3, out_channels=16, kernel_size=(4, 4), padding="same"
@@ -42,7 +43,7 @@ class ConvEncoder(nn.Module):
             # ),  # mx128x2x2
             # nn.MaxPool2d(kernel_size=(2, 2)),  # mx128x1x1,
             nn.Flatten(),  # mx128 #mx64x2x2
-            nn.Linear(64 * 2 * 2, 128),
+            nn.Linear(64 * 2 * 2, self.z_dim),
             nn.ReLU(inplace=True),
         )
 
@@ -111,8 +112,8 @@ class ConvAutoEncoder(nn.Module):
         plt.title("Reconstructed Images")
         plt.imshow(grid.permute(1, 2, 0).cpu())
 
-        dataset_images = torch.randint(
-            0, 255, (16, 128), dtype=torch.float32, device=device
+        dataset_images = torch.randn(
+            (16, self.encoder.z_dim), dtype=torch.float32, device=device
         )
         output = self.decoder(dataset_images).cpu()
         output = torch.stack([image for image in output])

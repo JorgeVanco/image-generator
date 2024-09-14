@@ -7,3 +7,5 @@ tensorboard --logdir=./logs/autoencoder
 tensorboard --logdir=./logs/autoencoder --bind_all
 
 python src/train.py --gpu --writer --overfit --data-dir dataset -m autoencoder --batch 8 --epochs 150 --checkpoint-dir logs/autoencoder/run_4
+
+python src/train.py --gpu --writer --data-dir dataset -m vae --batch 256 --epochs 500

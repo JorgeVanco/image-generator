@@ -160,7 +160,7 @@ if __name__ == "__main__":
         "-m",
         type=str,
         required=True,
-        choices=["autoencoder", "conv_autoencoder"],
+        choices=["autoencoder", "conv_autoencoder", "vae"],
         help="Model architecture",
     )
     model_params_group.add_argument(
