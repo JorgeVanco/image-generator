@@ -1,11 +1,10 @@
-from json import decoder
 import torch.nn as nn
 from torch._tensor import Tensor
 import torch
 from torch.nn.functional import mse_loss
-from torchvision.utils import make_grid, save_image
+from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
-import os
+from torch.nn.utils.clip_grad import clip_grad_norm_
 
 
 class Encoder(nn.Module):
@@ -85,10 +84,17 @@ class AutoEncoder(nn.Module):
         return [(figure1, "Reconstructed Images"), (figure2, "Randomly Sampled Images")]
 
 
-def train_step(model, X) -> Tensor:
+def train_step(model, X, optimizer) -> Tensor:
     pred = model(X)
     loss = mse_loss(pred, X)
-    return loss
+
+    # Backpropagation
+    optimizer.zero_grad()
+    loss.backward()
+
+    clip_grad_norm_(model.parameters(), 5)
+    optimizer.step()
+    return loss.item()
 
 
 def get_model(pretrained=None) -> nn.Sequential:

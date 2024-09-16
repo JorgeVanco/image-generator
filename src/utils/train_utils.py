@@ -1,3 +1,4 @@
+from numpy import isin
 from torch.nn.utils.clip_grad import clip_grad_norm_
 import os
 from utils import download_dataset
@@ -49,7 +50,7 @@ def train_loop(
     model,
     train_step,
     optimizer,
-    scheduler,
+    scheduler=None,
     epochs=5,
     logger=None,
     writer=None,
@@ -68,23 +69,22 @@ def train_loop(
             for batch_idx, (X, label) in enumerate(dataloader):
                 # Compute prediction error
                 X = X.to(device)
-                loss = train_step(model, X)
+                loss = train_step(model, X, optimizer, device)
 
-                # Backpropagation
-                optimizer.zero_grad()
-                loss.backward()
+                # optimizer.zero_grad()
+                # loss.backward()
 
-                clip_grad_norm_(model.parameters(), 5)
-                optimizer.step()
+                # clip_grad_norm_(model.parameters(), 5)
+                # optimizer.step()
 
                 gradient = get_gradient_norm(model)
                 gradients.append(gradient)
-                losses.append(loss.item())
-                running_loss += loss.item()
+                losses.append(loss)
+                running_loss += loss
 
                 # Logging
                 if logger and batch_idx % 32 == 0:
-                    loss_item, current = loss.item(), batch_idx * len(X)
+                    loss_item, current = loss, batch_idx * len(X)
                     logger.info(
                         f"Epoch [{epoch:>5d}/{epochs}], Batch [{batch_idx:>5d}/{len(dataloader)}], Samples [{current:>5d}/{size}], Loss: {loss_item:.4f}"
                     )
@@ -98,7 +98,8 @@ def train_loop(
                     )
 
             # Take a step in the scheduler after each epoch
-            scheduler.step()
+            if scheduler:
+                scheduler.step()
 
             # Logging after each epoch
             avg_loss = running_loss / len(dataloader)
@@ -117,12 +118,22 @@ def train_loop(
 
     # TODO Improve chekpoints
     if checkpoint_path is not None:
+        if isinstance(optimizer, dict):
+            optimizer_dict = {
+                "optimizer_state_dict": {
+                    key: opt.state_dict() for key, opt in optimizer.items()
+                }
+            }
+        else:
+            optimizer_dict = {
+                "optimizer_state_dict": optimizer.state_dict(),
+            }
         save(
             {
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "loss": loss.item(),
+                "loss": loss,
+                **optimizer_dict,
             },
             checkpoint_path,
         )

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
+from torch.nn.utils.clip_grad import clip_grad_norm_
 
 
 def kl_divergence_loss(q_dist) -> torch.Tensor:
@@ -274,11 +275,18 @@ class VAE(nn.Module):
         return [(figure1, "Reconstructed Images"), (figure2, "Randomly Sampled Images")]
 
 
-def train_step(model, X) -> torch.Tensor:
+def train_step(model, X, optimizer) -> torch.Tensor:
     pred, encoding = model(X)
 
     loss = vae_loss(pred, X, encoding)
-    return loss
+
+    # Backpropagation
+    optimizer.zero_grad()
+    loss.backward()
+
+    clip_grad_norm_(model.parameters(), 5)
+    optimizer.step()
+    return loss.item()
 
 
 def get_model(pretrained=None) -> nn.Sequential:

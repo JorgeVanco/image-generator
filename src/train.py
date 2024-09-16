@@ -1,6 +1,9 @@
 import importlib
 import argparse
 import os
+import sched
+
+from networkx import is_isolate
 
 
 from utils import (
@@ -66,23 +69,36 @@ def main(args) -> None:
     model_module = importlib.import_module(f"models.{args.model}")
     model = model_module.get_model(pretrained=args.pretrained).to(device)
 
-    optimizer = optimizers[args.optimizer]
-    # TODO Change how the optimizer is initialized based on the scheduler selected
-    optimizer = optimizer(
-        model.parameters(),
-        lr=args.learning_rate,
-        weight_decay=args.weight_decay,
-        # momentum=args.momentum,
-    )
-    scheduler = schedulers[args.scheduler](optimizer, gamma=args.scheduler_gamma)
+    # Get optimizer
+    try:
+        optimizer = model.get_optimizer(args, optimizers)
+        scheduler = None
+
+    except:
+        optimizer = optimizers[args.optimizer]
+        # TODO Change how the optimizer is initialized based on the scheduler selected
+        optimizer = optimizer(
+            model.parameters(),
+            lr=args.learning_rate,
+            weight_decay=args.weight_decay,
+            # momentum=args.momentum,
+        )
+
+        # Get scheduler
+        scheduler = schedulers[args.scheduler](optimizer, gamma=args.scheduler_gamma)
 
     # TODO Add load chekpoints
     if args.checkpoint_dir is not None:
         checkpoint = torch.load(checkpoint_path, weights_only=True)
         model.load_state_dict(checkpoint["model_state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         epoch = checkpoint["epoch"]
         loss = checkpoint["loss"]
+        if isinstance(optimizer, dict):
+            optimizer_dict = checkpoint["optimizer_state_dict"]
+            for opt in optimizer:
+                optimizer[opt].load_state_dict(optimizer_dict[opt])
+        else:
+            optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     else:
         epoch = 0
         loss = None
@@ -127,7 +143,10 @@ def main(args) -> None:
         plt.close(figure)
     if writer:
         input("Press enter to finish")
-        writer.close()
+        try:
+            writer.close()
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":
@@ -160,7 +179,7 @@ if __name__ == "__main__":
         "-m",
         type=str,
         required=True,
-        choices=["autoencoder", "conv_autoencoder", "vae"],
+        choices=["autoencoder", "conv_autoencoder", "vae", "gan"],
         help="Model architecture",
     )
     model_params_group.add_argument(

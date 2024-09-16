@@ -25,7 +25,7 @@ class MyWriter(SummaryWriter):
     def __init__(self, logging_dir) -> None:
         super().__init__(log_dir=logging_dir)
         self.tb_process = subprocess.Popen(
-            ["tensorboard", "--logdir", logging_dir, "--port", "6006", "--bind_all"]
+            ["tensorboard", "--logdir", logging_dir, "--port", "6006", "--bind_all"],
         )
 
     def close(self) -> None:
