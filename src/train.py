@@ -133,7 +133,9 @@ def main(args) -> None:
         logger.error(e)
 
     # Save images to folder
-    images = model.sample_images(dataloader, n_images=8, device=device)
+    images = model.sample_images(
+        dataloader, n_images=8, device=device, last_images=True
+    )
     for figure, title in images:
         name = title
         if args.checkpoint_dir is not None:
@@ -179,7 +181,7 @@ if __name__ == "__main__":
         "-m",
         type=str,
         required=True,
-        choices=["autoencoder", "conv_autoencoder", "vae", "gan"],
+        choices=["autoencoder", "conv_autoencoder", "vae", "gan", "diffusion"],
         help="Model architecture",
     )
     model_params_group.add_argument(

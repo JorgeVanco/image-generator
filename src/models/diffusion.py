@@ -1,10 +1,21 @@
 import torch.nn as nn
+from matplotlib.animation import FuncAnimation, PillowWriter
+from torchvision.utils import make_grid, save_image
+import matplotlib.pyplot as plt
+import numpy as np
+from torch._tensor import Tensor
+import torch
+from torch.nn import functional as F
+import os
+import torchvision.transforms as transforms
+from torch.utils.data import Dataset
+from PIL import Image
 
 
 class UnetUp(nn.Module):
     def __init__(self, in_channels, out_channels, last_layer=False) -> None:
         super(UnetUp, self).__init__()
-
+        print(last_layer)
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
             nn.Conv2d(in_channels, out_channels, kernel_size=1),
@@ -45,8 +56,15 @@ class UnetDown(nn.Module):
 
 
 class DiffusionModel(nn.Module):
-    def __init__(self, in_channels, out_channels, num_layers) -> None:
+    def __init__(
+        self,
+        in_channels=3,
+        out_channels=16,
+        num_layers=4,
+        nc_feat=10,
+    ) -> None:
         super(DiffusionModel, self).__init__()
+        self.nc_feat = nc_feat
         self.downs = nn.ModuleList(
             [
                 UnetDown(
@@ -64,262 +82,114 @@ class DiffusionModel(nn.Module):
                         if i != num_layers - 1
                         else in_channels
                     ),
-                    last_layer=i == num_layers - 1,
+                    last_layer=(i == num_layers - 1),
                 )
                 for i in range(num_layers)
             ]
         )
+        self.time_embeddings = nn.ModuleList(
+            [
+                EmbedFC(1, out_channels * (num_layers - i))
+                for i in range(num_layers // 2)
+            ]
+        )
+        self.context_embeddings = nn.ModuleList(
+            [
+                EmbedFC(self.nc_feat, out_channels * (num_layers - i))
+                for i in range(num_layers // 2)
+            ]
+        )
+        self.a_t, self.b_t, self.ab_t = self.get_ddpm_noise_schedule(500)
 
-    def forward(self, x):
+    @staticmethod
+    def get_ddpm_noise_schedule(
+        timesteps, beta1=1e-4, beta2=0.02, device="cpu"
+    ) -> Tensor:
+        # construct DDPM noise schedule
+        b_t = (beta2 - beta1) * torch.linspace(
+            0, 1, timesteps + 1, device=device
+        ) + beta1
+        a_t = 1 - b_t
+        ab_t = torch.cumsum(a_t.log(), dim=0).exp()
+        ab_t[0] = 1
+        return a_t, b_t, ab_t
+
+    def forward(self, x, t, c=None):
+
+        if c is None:
+            c = torch.zeros(x.shape[0], self.nc_feat).to(x)
+
         resx = []
         for down in self.downs:
             resx.append(x)
             x = down(x)
         resx = resx[::-1]
-        for up, res in zip(self.ups, resx):
+        for index, (up, res) in enumerate(zip(self.ups, resx)):
+
+            # embed the timestep and context labels
+            if index < len(self.time_embeddings):
+                temb = self.time_embeddings[index]
+                cemb = self.context_embeddings[index]
+                x = x * temb(t).view(-1, temb.emb_dim, 1, 1) + cemb(c).view(
+                    -1, cemb.emb_dim, 1, 1
+                )
+
             x = up(x, res)
 
         return x
 
+    @torch.no_grad()
+    def sample_images(
+        self, dataloader, n_images=8, device="cpu", last_images=False
+    ) -> list[tuple[plt.Figure, str]]:
+        self.eval()
 
-import torch
-import torch.nn as nn
-import numpy as np
-from torchvision.utils import save_image, make_grid
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
-import os
-import torchvision.transforms as transforms
-from torch.utils.data import Dataset
-from PIL import Image
+        samples, intermediate_ddpm = sample_ddpm(self, 2 * n_images, device=device)
+        # sx_gen_store = np.moveaxis(
+        #     samples, 1, 3
+        # )  # change to Numpy image format (h,w,channels) vs (channels,h,w)
+        # samples = norm_all(
+        #     sx_gen_store, sx_gen_store.shape[0], sx_gen_store.shape[1]
+        # )  # unity norm to put in range [0,1] for np.imshow
+        grid = plot_grid(samples, 2 * n_images, 4, "logs/diffusion", "run_image")
+        if last_images:
 
+            animation_ddpm = plot_sample(
+                intermediate_ddpm,
+                2 * n_images,
+                4,
+                "logs/diffusion",
+                "ani_run",
+                "",
+                save=True,
+            )
+            # x_T ~ N(0, 1), sample initial noise
 
-class ContextUnet(nn.Module):
-    def __init__(
-        self, in_channels, n_feat=256, n_cfeat=10, height=28
-    ):  # cfeat - context features
-        super(ContextUnet, self).__init__()
+        # output = samples.cpu()
+        # # print([(torch.max(image), torch.min(image)) for image in output])
+        # output = torch.stack([image for image in output])
+        # grid = make_grid(output, nrow=8, padding=2)
 
-        # number of input channels, number of intermediate feature maps and number of classes
-        self.in_channels = in_channels
-        self.n_feat = n_feat
-        self.n_cfeat = n_cfeat
-        self.h = height  # assume h == w. must be divisible by 4, so 28,24,20,16...
+        figure2 = plt.figure()
+        plt.title("Randomly Sampled Images")
+        plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
 
-        # Initialize the initial convolutional layer
-        self.init_conv = ResidualConvBlock(in_channels, n_feat, is_res=True)
-
-        # Initialize the down-sampling path of the U-Net with two levels
-        self.down1 = UnetDown(n_feat, n_feat)  # down1 #[10, 256, 8, 8]
-        self.down2 = UnetDown(n_feat, 2 * n_feat)  # down2 #[10, 256, 4,  4]
-
-        # original: self.to_vec = nn.Sequential(nn.AvgPool2d(7), nn.GELU())
-        self.to_vec = nn.Sequential(nn.AvgPool2d((4)), nn.GELU())
-
-        # Embed the timestep and context labels with a one-layer fully connected neural network
-        self.timeembed1 = EmbedFC(1, 2 * n_feat)
-        self.timeembed2 = EmbedFC(1, 1 * n_feat)
-        self.contextembed1 = EmbedFC(n_cfeat, 2 * n_feat)
-        self.contextembed2 = EmbedFC(n_cfeat, 1 * n_feat)
-
-        # Initialize the up-sampling path of the U-Net with three levels
-        self.up0 = nn.Sequential(
-            nn.ConvTranspose2d(
-                2 * n_feat, 2 * n_feat, self.h // 4, self.h // 4
-            ),  # up-sample
-            nn.GroupNorm(8, 2 * n_feat),  # normalize
-            nn.ReLU(),
-        )
-        self.up1 = UnetUp(4 * n_feat, n_feat)
-        self.up2 = UnetUp(2 * n_feat, n_feat)
-
-        # Initialize the final convolutional layers to map to the same number of channels as the input image
-        self.out = nn.Sequential(
-            nn.Conv2d(
-                2 * n_feat, n_feat, 3, 1, 1
-            ),  # reduce number of feature maps   #in_channels, out_channels, kernel_size, stride=1, padding=0
-            nn.GroupNorm(8, n_feat),  # normalize
-            nn.ReLU(),
-            nn.Conv2d(
-                n_feat, self.in_channels, 3, 1, 1
-            ),  # map to same number of channels as input
-        )
-
-    def forward(self, x, t, c=None):
-        """
-        x : (batch, n_feat, h, w) : input image
-        t : (batch, n_cfeat)      : time step
-        c : (batch, n_classes)    : context label
-        """
-        # x is the input image, c is the context label, t is the timestep, context_mask says which samples to block the context on
-
-        # pass the input image through the initial convolutional layer
-        x = self.init_conv(x)
-        # pass the result through the down-sampling path
-        down1 = self.down1(x)  # [10, 256, 8, 8]
-        down2 = self.down2(down1)  # [10, 256, 4, 4]
-
-        # convert the feature maps to a vector and apply an activation
-        hiddenvec = self.to_vec(down2)
-
-        # mask out context if context_mask == 1
-        if c is None:
-            c = torch.zeros(x.shape[0], self.n_cfeat).to(x)
-
-        # embed context and timestep
-        cemb1 = self.contextembed1(c).view(
-            -1, self.n_feat * 2, 1, 1
-        )  # (batch, 2*n_feat, 1,1)
-        temb1 = self.timeembed1(t).view(-1, self.n_feat * 2, 1, 1)
-        cemb2 = self.contextembed2(c).view(-1, self.n_feat, 1, 1)
-        temb2 = self.timeembed2(t).view(-1, self.n_feat, 1, 1)
-        # print(f"uunet forward: cemb1 {cemb1.shape}. temb1 {temb1.shape}, cemb2 {cemb2.shape}. temb2 {temb2.shape}")
-
-        up1 = self.up0(hiddenvec)
-        up2 = self.up1(cemb1 * up1 + temb1, down2)  # add and multiply embeddings
-        up3 = self.up2(cemb2 * up2 + temb2, down1)
-        out = self.out(torch.cat((up3, x), 1))
-        return out
-
-
-class ResidualConvBlock(nn.Module):
-    def __init__(
-        self, in_channels: int, out_channels: int, is_res: bool = False
-    ) -> None:
-        super().__init__()
-
-        # Check if input and output channels are the same for the residual connection
-        self.same_channels = in_channels == out_channels
-
-        # Flag for whether or not to use residual connection
-        self.is_res = is_res
-
-        # First convolutional layer
-        self.conv1 = nn.Sequential(
-            nn.Conv2d(
-                in_channels, out_channels, 3, 1, 1
-            ),  # 3x3 kernel with stride 1 and padding 1
-            nn.BatchNorm2d(out_channels),  # Batch normalization
-            nn.GELU(),  # GELU activation function
-        )
-
-        # Second convolutional layer
-        self.conv2 = nn.Sequential(
-            nn.Conv2d(
-                out_channels, out_channels, 3, 1, 1
-            ),  # 3x3 kernel with stride 1 and padding 1
-            nn.BatchNorm2d(out_channels),  # Batch normalization
-            nn.GELU(),  # GELU activation function
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-
-        # If using residual connection
-        if self.is_res:
-            # Apply first convolutional layer
-            x1 = self.conv1(x)
-
-            # Apply second convolutional layer
-            x2 = self.conv2(x1)
-
-            # If input and output channels are the same, add residual connection directly
-            if self.same_channels:
-                out = x + x2
-            else:
-                # If not, apply a 1x1 convolutional layer to match dimensions before adding residual connection
-                shortcut = nn.Conv2d(
-                    x.shape[1], x2.shape[1], kernel_size=1, stride=1, padding=0
-                ).to(x.device)
-                out = shortcut(x) + x2
-            # print(f"resconv forward: x {x.shape}, x1 {x1.shape}, x2 {x2.shape}, out {out.shape}")
-
-            # Normalize output tensor
-            return out / 1.414
-
-        # If not using residual connection, return output of second convolutional layer
-        else:
-            x1 = self.conv1(x)
-            x2 = self.conv2(x1)
-            return x2
-
-    # Method to get the number of output channels for this block
-    def get_out_channels(self):
-        return self.conv2[0].out_channels
-
-    # Method to set the number of output channels for this block
-    def set_out_channels(self, out_channels):
-        self.conv1[0].out_channels = out_channels
-        self.conv2[0].in_channels = out_channels
-        self.conv2[0].out_channels = out_channels
-
-
-class UnetUp(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(UnetUp, self).__init__()
-
-        # Create a list of layers for the upsampling block
-        # The block consists of a ConvTranspose2d layer for upsampling, followed by two ResidualConvBlock layers
-        layers = [
-            nn.ConvTranspose2d(in_channels, out_channels, 2, 2),
-            ResidualConvBlock(out_channels, out_channels),
-            ResidualConvBlock(out_channels, out_channels),
-        ]
-
-        # Use the layers to create a sequential model
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x, skip):
-        # Concatenate the input tensor x with the skip connection tensor along the channel dimension
-        x = torch.cat((x, skip), 1)
-
-        # Pass the concatenated tensor through the sequential model and return the output
-        x = self.model(x)
-        return x
-
-
-class UnetDown(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(UnetDown, self).__init__()
-
-        # Create a list of layers for the downsampling block
-        # Each block consists of two ResidualConvBlock layers, followed by a MaxPool2d layer for downsampling
-        layers = [
-            ResidualConvBlock(in_channels, out_channels),
-            ResidualConvBlock(out_channels, out_channels),
-            nn.MaxPool2d(2),
-        ]
-
-        # Use the layers to create a sequential model
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        # Pass the input through the sequential model and return the output
-        return self.model(x)
+        return [(figure2, "Randomly Sampled Images")]
 
 
 class EmbedFC(nn.Module):
     def __init__(self, input_dim, emb_dim):
         super(EmbedFC, self).__init__()
-        """
-        This class defines a generic one layer feed-forward neural network for embedding input data of
-        dimensionality input_dim to an embedding space of dimensionality emb_dim.
-        """
         self.input_dim = input_dim
-
-        # define the layers for the network
-        layers = [
+        self.emb_dim = emb_dim
+        self.model = nn.Sequential(
             nn.Linear(input_dim, emb_dim),
             nn.GELU(),
             nn.Linear(emb_dim, emb_dim),
-        ]
-
-        # create a PyTorch sequential model consisting of the defined layers
-        self.model = nn.Sequential(*layers)
+        )
 
     def forward(self, x):
-        # flatten the input tensor
         x = x.view(-1, self.input_dim)
-        # apply the model layers to the flattened tensor
         return self.model(x)
 
 
@@ -399,7 +269,7 @@ def gen_tst_context(n_cfeat):
     return len(vec), vec
 
 
-def plot_grid(x, n_sample, n_rows, save_dir, w):
+def plot_grid(x, n_sample, n_rows, save_dir, w) -> Tensor:
     # x:(n_sample, 3, h, w)
     ncols = n_sample // n_rows
     grid = make_grid(
@@ -451,40 +321,92 @@ def plot_sample(x_gen_store, n_sample, nrows, save_dir, fn, w, save=False):
     return ani
 
 
-class CustomDataset(Dataset):
-    def __init__(self, sfilename, lfilename, transform, null_context=False):
-        self.sprites = np.load(sfilename)
-        self.slabels = np.load(lfilename)
-        print(f"sprite shape: {self.sprites.shape}")
-        print(f"labels shape: {self.slabels.shape}")
-        self.transform = transform
-        self.null_context = null_context
-        self.sprites_shape = self.sprites.shape
-        self.slabel_shape = self.slabels.shape
+# hyperparameters
 
-    # Return the number of images in the dataset
-    def __len__(self):
-        return len(self.sprites)
+# diffusion hyperparameters
+timesteps = 500
+beta1 = 1e-4
+beta2 = 0.02
 
-    # Get the image and label at a given index
-    def __getitem__(self, idx):
-        # Return the image and label as a tuple
-        if self.transform:
-            image = self.transform(self.sprites[idx])
-            if self.null_context:
-                label = torch.tensor(0).to(torch.int64)
-            else:
-                label = torch.tensor(self.slabels[idx]).to(torch.int64)
-        return (image, label)
+# network hyperparameters
+device = torch.device("cuda:0" if torch.cuda.is_available() else torch.device("cpu"))
+n_feat = 64  # 64 hidden dimension feature
+n_cfeat = 5  # context vector is of size 5
+height = 16  # 16x16 image
+save_dir = "./weights/"
 
-    def getshapes(self):
-        # return shapes of data and labels
-        return self.sprites_shape, self.slabel_shape
+# training hyperparameters
+batch_size = 100
+n_epoch = 32
+lrate = 1e-3
 
 
-transform = transforms.Compose(
-    [
-        transforms.ToTensor(),  # from [0,255] to range [0.0,1.0]
-        transforms.Normalize((0.5,), (0.5,)),  # range [-1,1]
-    ]
-)
+# helper function: perturbs an image to a specified noise level
+def perturb_input(x, t, noise, ab_t) -> Tensor:
+    return (
+        ab_t.sqrt()[t, None, None, None] * x + (1 - ab_t[t, None, None, None]) * noise
+    )
+
+
+def train_step(
+    model: DiffusionModel, X, optimizer, device="cpu", timesteps=500
+) -> Tensor:
+
+    # perturb data
+    noise = torch.randn_like(X)
+    t = torch.randint(1, timesteps + 1, (X.shape[0],)).to(device)
+    x_pert = perturb_input(X, t, noise, model.ab_t.to(device))
+
+    pred_noise = model(x_pert, t / timesteps)
+    # loss is mean squared error between the predicted and true noise
+    loss = F.mse_loss(pred_noise, noise)
+    loss.backward()
+
+    optimizer.step()
+
+    return loss.item()  # [gen_loss.item(), disc_loss.item()]
+
+
+def get_model(pretrained=None) -> DiffusionModel:
+    model = DiffusionModel()
+    if pretrained:
+        model.load_state_dict(pretrained)
+    return model
+
+
+# helper function; removes the predicted noise (but adds some noise back in to avoid collapse)
+def denoise_add_noise(x, t, pred_noise, a_t, b_t, ab_t, z=None):
+    if z is None:
+        z = torch.randn_like(x)
+    noise = b_t.sqrt()[t] * z
+    mean = (x - pred_noise * ((1 - a_t[t]) / (1 - ab_t[t]).sqrt())) / a_t[t].sqrt()
+    return mean + noise
+
+
+@torch.no_grad()
+def sample_ddpm(model, n_sample, save_rate=20, device="cpu"):
+    # x_T ~ N(0, 1), sample initial noise
+    samples = torch.randn(n_sample, 3, height, height).to(device)
+
+    # array to keep track of generated steps for plotting
+    intermediate = []
+    for i in range(timesteps, 0, -1):
+        # print(f"sampling timestep {i:3d}", end="\r")
+
+        # reshape time tensor
+        t = torch.tensor([i / timesteps])[:, None, None, None].to(device)
+
+        # sample some random noise to inject back in. For i = 1, don't add back in noise
+        z = torch.randn_like(samples) if i > 1 else 0
+
+        eps = model(samples, t)  # predict noise e_(x_t,t)
+        a_t = model.a_t.to(device)
+        b_t = model.b_t.to(device)
+        ab_t = model.ab_t.to(device)
+
+        samples = denoise_add_noise(samples, i, eps, a_t, b_t, ab_t, z)
+        if i % save_rate == 0 or i == timesteps or i < 8:
+            intermediate.append(samples.detach().cpu().numpy())
+
+    intermediate = np.stack(intermediate)
+    return samples, intermediate

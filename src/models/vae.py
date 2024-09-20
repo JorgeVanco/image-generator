@@ -242,7 +242,7 @@ class VAE(nn.Module):
 
     @torch.no_grad()
     def sample_images(
-        self, dataloader, n_images=8, device="cpu"
+        self, dataloader, n_images=8, device="cpu", last_images=False
     ) -> list[tuple[plt.Figure, str]]:
         self.eval()
 
