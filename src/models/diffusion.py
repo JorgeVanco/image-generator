@@ -15,7 +15,7 @@ from PIL import Image
 class UnetUp(nn.Module):
     def __init__(self, in_channels, out_channels, last_layer=False) -> None:
         super(UnetUp, self).__init__()
-        print(last_layer)
+
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
             nn.Conv2d(in_channels, out_channels, kernel_size=1),
@@ -351,7 +351,7 @@ def perturb_input(x, t, noise, ab_t) -> Tensor:
 def train_step(
     model: DiffusionModel, X, optimizer, device="cpu", timesteps=500
 ) -> Tensor:
-
+    optimizer.zero_grad()
     # perturb data
     noise = torch.randn_like(X)
     t = torch.randint(1, timesteps + 1, (X.shape[0],)).to(device)
