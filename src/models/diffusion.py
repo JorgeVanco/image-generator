@@ -18,10 +18,10 @@ class UnetUp(nn.Module):
 
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(in_channels, out_channels, kernel_size=1),
+            nn.Conv2d(2 * in_channels, out_channels, kernel_size=1),
         )
         self.conv = nn.Sequential(
-            nn.Conv2d(out_channels * 2, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
@@ -30,10 +30,10 @@ class UnetUp(nn.Module):
         )
 
     def forward(self, x, resx):
-        x = self.up(x)
-        x = torch.cat([x, resx], dim=1)
-        x = self.conv(x)
-        return x
+        x1 = torch.cat([x, resx], dim=1)
+        x1 = self.up(x1)
+        x2 = self.conv(x1)
+        return x2 + x1
 
 
 class UnetDown(nn.Module):
@@ -121,8 +121,8 @@ class DiffusionModel(nn.Module):
 
         resx = []
         for down in self.downs:
-            resx.append(x)
             x = down(x)
+            resx.append(x)
         resx = resx[::-1]
         for index, (up, res) in enumerate(zip(self.ups, resx)):
 
@@ -333,12 +333,6 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else torch.device("c
 n_feat = 64  # 64 hidden dimension feature
 n_cfeat = 5  # context vector is of size 5
 height = 16  # 16x16 image
-save_dir = "./weights/"
-
-# training hyperparameters
-batch_size = 100
-n_epoch = 32
-lrate = 1e-3
 
 
 # helper function: perturbs an image to a specified noise level
