@@ -55,23 +55,44 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
 
 1. Train an Autoencoder:
    ```bash
-   python src/train.py --verbose --gpu --data-dir dataset -m autoencoder --batch 256 --epochs 1
+   python src/train.py --verbose --gpu --data-dir dataset -m autoencoder --batch 256 --epochs 200
    ```
+
+   Example output from Autoencoder:
+   ![Autoencoder Output](assets/autoencoder.png)
+
+2. Train a Convolutional Autoencoder:
+   ```bash
+   python src/train.py --verbose --gpu --data-dir dataset -m conv_autoencoder --batch 256 --epochs 200
+   ```
+
+   Example output from Convolutional Autoencoder:
+   ![Convolutional Autoencoder Output](assets/conv_autoencoder.png)
+
 
 2. Train a Variational Autoencoder (VAE):
    ```bash
    python src/train.py --verbose --gpu --data-dir dataset -m vae --batch 256 --epochs 500
    ```
 
+   Example output from VAE:
+   ![VAE Output](assets/vae.png)
+
 3. Train a GAN:
    ```bash
    python src/train.py --verbose --gpu --data-dir dataset -m gan --batch 256 --epochs 100
    ```
 
+   Example output from GAN:
+   ![GAN Output](assets/gan.png)
+
 4. Train a Diffusion Model:
    ```bash
    python src/train.py --verbose --gpu --data-dir dataset -m diffusion --batch 256 --epochs 100
    ```
+
+   Example output from Diffusion model:
+   ![Diffusion Output](assets/diffusion.gif)
 
 5. Use TensorBoard to visualize training:
    ```bash
