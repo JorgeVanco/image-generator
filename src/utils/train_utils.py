@@ -69,7 +69,7 @@ def train_loop(
             for batch_idx, (X, label) in enumerate(dataloader):
                 # Compute prediction error
                 X = X.to(device)
-                loss = train_step(model, X, optimizer, device)
+                loss = train_step(model, X, optimizer)
 
                 # optimizer.zero_grad()
                 # loss.backward()

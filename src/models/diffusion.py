@@ -155,7 +155,8 @@ class EmbedFC(nn.Module):
 
 class DiffusionModel(nn.Module):
     def __init__(
-        self,in_channels=3,
+        self,
+        in_channels=3,
         out_channels=16,
         num_layers=4,
         nc_feat=10,
@@ -625,9 +626,8 @@ def perturb_input(x, t, noise, ab_t) -> Tensor:
     )
 
 
-def train_step(
-    model: DiffusionModel, X, optimizer, device="cpu", timesteps=500
-) -> Tensor:
+def train_step(model: DiffusionModel, X, optimizer, timesteps=500) -> Tensor:
+    device = X.device
     optimizer.zero_grad()
     # perturb data
     noise = torch.randn_like(X)
