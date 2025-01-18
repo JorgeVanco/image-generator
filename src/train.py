@@ -147,7 +147,7 @@ def main(args) -> None:
             )
         else:
             figure.savefig(os.path.join(logging_dir, name + ".png"))
-            plt.close(figure)
+    plt.close("all")
     if args.writer == "tensorboard":
         input("Press enter to finish")
         try:

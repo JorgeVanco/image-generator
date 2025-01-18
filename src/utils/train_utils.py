@@ -1,11 +1,10 @@
-from numpy import isin
-from torch.nn.utils.clip_grad import clip_grad_norm_
 import os
 from utils import download_dataset
 from data_processing.Dataset import PixelDataset
 from torch.utils.data import DataLoader, Subset
 from tqdm.auto import tqdm
 from torch import save
+import matplotlib.pyplot as plt
 
 
 def get_gradient_norm(model):
@@ -113,6 +112,7 @@ def train_loop(
                 model.train()
                 for figure, title in images:
                     writer.add_figure(title, figure, epoch)
+                    plt.close(figure)
     except KeyboardInterrupt:
         logger.warning("Training interrupted.")
 
