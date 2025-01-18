@@ -176,8 +176,9 @@ def get_gen_loss(gen, disc, criterion, num_images, z_dim, device):
     return gen_loss
 
 
-def train_step(model: GAN, X, optimizer, device="cpu") -> Tensor:
+def train_step(model: GAN, X, optimizer) -> Tensor:
     n_images = X.shape[0]
+    device = X.device
     disc_loss = get_disc_loss(
         model.generator,
         model.discriminator,
