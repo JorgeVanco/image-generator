@@ -33,8 +33,31 @@ class MyWriter(SummaryWriter):
         super().close()
 
 
+class WandBWriter:
+
+    def __init__(self, logging_dir) -> None:
+        import wandb
+
+        name = "/".join(logging_dir.rsplit("\\", 2)[1:])
+        print(name)
+        self.Image = wandb.Image
+        self.wandb = wandb.init(
+            project="pixelart-generator", dir=logging_dir, name=name
+        )
+        wandb.define_metric("image_step")
+
+    def close(self) -> None:
+        self.wandb.finish()
+
+    def add_scalar(self, title, value, step):
+        self.wandb.log({title: value}, step=step)
+
+    def add_figure(self, title, figure, step):
+        self.wandb.log({title: self.Image(figure), "image_step": step})
+
+
 def get_loggers(
-    logging_dir, verbose: bool = False, use_writer: bool = False
+    logging_dir, verbose: bool = False, writer_name: str = None
 ) -> tuple[logging.Logger, MyWriter]:
 
     logging_file = os.path.join(logging_dir, "training.log")
@@ -63,9 +86,12 @@ def get_loggers(
     if verbose:
         logger.addHandler(console_handler)
     writer = None
-    if use_writer:
+    if writer_name is not None:
         writer_logging = logging_dir  # .rsplit("/", 1)[0]
         print(writer_logging)
-        writer = MyWriter(writer_logging)
+        if writer_name == "wandb":
+            writer = WandBWriter(writer_logging)
+        elif writer_name == "tensorboard":
+            writer = MyWriter(writer_logging)
 
     return logger, writer

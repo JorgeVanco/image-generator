@@ -94,9 +94,10 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
    Example output from Diffusion model:
    ![Diffusion Output](assets/diffusion.gif)
 
-5. Use TensorBoard to visualize training:
+5. Use TensorBoard or Weights & Biases to visualize training:
    ```bash
-   python src/train.py --verbose --gpu --writer --data-dir dataset -m diffusion --batch 256 --epochs 100
+   python src/train.py --verbose --gpu --writer tensorboard --data-dir dataset -m diffusion --batch 256 --epochs 100
+   python src/train.py --verbose --gpu --writer wandb --data-dir dataset -m diffusion --batch 256 --epochs 100
    ```
 
 Replace `<model_name>` with the name of the model you trained.

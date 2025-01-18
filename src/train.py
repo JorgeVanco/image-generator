@@ -1,9 +1,6 @@
 import importlib
 import argparse
 import os
-import sched
-
-from networkx import is_isolate
 
 
 from utils import (
@@ -46,7 +43,7 @@ def main(args) -> None:
     checkpoint_path = os.path.join(logging_dir, "checkpoint.pth")
 
     logger, writer = get_loggers(
-        logging_dir=logging_dir, verbose=args.verbose, use_writer=args.writer
+        logging_dir=logging_dir, verbose=args.verbose, writer_name=args.writer
     )
 
     dataset, dataloader = get_dataset_dataloader(
@@ -143,7 +140,7 @@ def main(args) -> None:
 
         figure.savefig(os.path.join(logging_dir, name + ".png"))
         plt.close(figure)
-    if writer:
+    if args.writer == "tensorboard":
         input("Press enter to finish")
         try:
             writer.close()
@@ -252,7 +249,11 @@ if __name__ == "__main__":
         "--resume", type=str, help="Path to a checkpoint to resume training from"
     )
     log_params_group.add_argument(
-        "--writer", action="store_true", help="Use Tensorboard writer"
+        "--writer",
+        type=str,
+        required=False,
+        choices=["tensorboard", "wandb"],
+        help="Writer to use: tensorboard or Weights and Biases",
     )
 
     # Miscellaneous
