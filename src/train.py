@@ -1,6 +1,7 @@
 import importlib
 import argparse
 import os
+from matplotlib.animation import PillowWriter
 
 
 from utils import (
@@ -137,9 +138,16 @@ def main(args) -> None:
         name = title
         if args.checkpoint_dir is not None:
             name += "_pretrained"
-
-        figure.savefig(os.path.join(logging_dir, name + ".png"))
-        plt.close(figure)
+        if ".gif" in name:
+            name = name.replace(".gif", "")
+            figure.save(
+                os.path.join(logging_dir, name + ".gif"),
+                dpi=100,
+                writer=PillowWriter(fps=5),
+            )
+        else:
+            figure.savefig(os.path.join(logging_dir, name + ".png"))
+            plt.close(figure)
     if args.writer == "tensorboard":
         input("Press enter to finish")
         try:

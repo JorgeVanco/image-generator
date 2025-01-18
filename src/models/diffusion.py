@@ -235,19 +235,7 @@ class DiffusionModel(nn.Module):
         # samples = norm_all(
         #     sx_gen_store, sx_gen_store.shape[0], sx_gen_store.shape[1]
         # )  # unity norm to put in range [0,1] for np.imshow
-        grid = plot_grid(samples, 2 * n_images, 4, "logs/diffusion", "run_image")
-        if last_images:
-
-            animation_ddpm = plot_sample(
-                intermediate_ddpm,
-                2 * n_images,
-                4,
-                "logs/diffusion",
-                "ani_run",
-                "",
-                save=True,
-            )
-            # x_T ~ N(0, 1), sample initial noise
+        grid = plot_grid(samples, 2 * n_images, 4)
 
         # output = samples.cpu()
         # # print([(torch.max(image), torch.min(image)) for image in output])
@@ -257,8 +245,21 @@ class DiffusionModel(nn.Module):
         figure2 = plt.figure()
         plt.title("Randomly Sampled Images")
         plt.imshow(grid.permute(1, 2, 0).cpu().numpy())
+        images = [(figure2, "Randomly Sampled Images")]
+        if last_images:
 
-        return [(figure2, "Randomly Sampled Images")]
+            animation_ddpm = plot_sample(
+                intermediate_ddpm,
+                2 * n_images,
+                4,
+                "logs/diffusion",
+                "ani_run",
+                "",
+                save=False,
+            )
+            images.append((animation_ddpm, "Diffusion Model Animation.gif"))
+            # x_T ~ N(0, 1), sample initial noise
+        return images
 
     def forward(self, x, t, c=None):
         """
@@ -553,14 +554,15 @@ def gen_tst_context(n_cfeat):
     return len(vec), vec
 
 
-def plot_grid(x, n_sample, n_rows, save_dir, w) -> Tensor:
+def plot_grid(x, n_sample, n_rows) -> Tensor:
     # x:(n_sample, 3, h, w)
     ncols = n_sample // n_rows
     grid = make_grid(
         norm_torch(x), nrow=ncols
     )  # curiously, nrow is number of columns.. or number of items in the row.
-    save_image(grid, save_dir + f"run_image_w{w}.png")
-    print("saved image at " + save_dir + f"run_image_w{w}.png")
+    # save_file = os.path.join(save_dir, f"run_image_w{w}.png")
+    # save_image(grid, save_file)
+    # print("saved image at " + save_file)
     return grid
 
 
