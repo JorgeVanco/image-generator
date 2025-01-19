@@ -10,13 +10,14 @@ from utils import (
     get_loggers,
     get_dataset_dataloader,
     get_logging_dir,
+    schedulers,
+    get_scheduler,
 )
 
 from data_processing.Dataset import PixelDataset
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import Adam, SGD, RMSprop
-from torch.optim.lr_scheduler import ExponentialLR  # , CosineAnnealingLR
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 
@@ -25,7 +26,6 @@ import matplotlib.pyplot as plt
 
 
 optimizers = {"adam": Adam, "sgd": SGD, "rmsprop": RMSprop}
-schedulers = {"exponential": ExponentialLR}  # , "cosine": CosineAnnealingLR}
 # TODO Add more optimizers and schedulers as needed
 # TODO Add cosine annealing scheduler parameters
 
@@ -83,7 +83,7 @@ def main(args) -> None:
         )
 
         # Get scheduler
-        scheduler = schedulers[args.scheduler](optimizer, gamma=args.scheduler_gamma)
+        scheduler = get_scheduler(optimizer, args)
 
     # TODO Add load chekpoints
     if args.checkpoint_dir is not None:

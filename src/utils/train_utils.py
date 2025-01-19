@@ -5,6 +5,19 @@ from torch.utils.data import DataLoader, Subset
 from tqdm.auto import tqdm
 from torch import save
 import matplotlib.pyplot as plt
+from torch.optim.lr_scheduler import (
+    ExponentialLR,
+    LinearLR,
+    PolynomialLR,
+    CosineAnnealingLR,
+)
+
+
+schedulers = {
+    "exponential": ExponentialLR,
+    "linear": PolynomialLR,
+    "cosine": CosineAnnealingLR,
+}
 
 
 def get_gradient_norm(model):
@@ -15,6 +28,20 @@ def get_gradient_norm(model):
             total_norm += param_norm.item() ** 2
     total_norm = total_norm**0.5
     return total_norm
+
+
+def get_scheduler(optimizer, args):
+    if args.scheduler not in schedulers:
+        raise ValueError(f"Scheduler {args.scheduler} not found.")
+    elif args.scheduler == "exponential":
+        scheduler_class = schedulers[args.scheduler](optimizer, gamma=args.gamma)
+    elif args.scheduler == "linear":
+        scheduler_class = schedulers[args.scheduler](
+            optimizer, power=1, total_iters=args.epochs
+        )
+    elif args.scheduler == "cosine":
+        scheduler_class = CosineAnnealingLR(optimizer, T_max=args.epochs)
+    return scheduler_class
 
 
 def get_dataset_dataloader(
@@ -94,6 +121,11 @@ def train_loop(
                     )
                     writer.add_scalar(
                         "Gradients", gradient, epoch * len(dataloader) + batch_idx
+                    )
+                    writer.add_scalar(
+                        "Learning Rate",
+                        optimizer.param_groups[0]["lr"],
+                        epoch * len(dataloader) + batch_idx,
                     )
 
             # Take a step in the scheduler after each epoch
