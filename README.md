@@ -26,7 +26,7 @@ This project is an image generation tool that uses various deep learning models 
 3. Download the dataset: 
    It is automatically downloaded when running the script if the dataset is not found in the data-dir
    ```bash
-   python src/train.py --gpu--data-dir dataset -m <model_name>
+   python src/train.py --gpu --data-dir dataset -m <model_name>
    ```
 
 ## Available Models
@@ -70,7 +70,7 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
    ![Convolutional Autoencoder Output](assets/conv_autoencoder.png)
 
 
-2. Train a Variational Autoencoder (VAE):
+3. Train a Variational Autoencoder (VAE):
    ```bash
    python src/train.py --verbose --gpu --data-dir dataset -m vae --batch 256 --epochs 500
    ```
@@ -78,7 +78,7 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
    Example output from VAE:
    ![VAE Output](assets/vae.png)
 
-3. Train a GAN:
+4. Train a GAN:
    ```bash
    python src/train.py --verbose --gpu --data-dir dataset -m gan --batch 256 --epochs 100
    ```
@@ -86,7 +86,7 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
    Example output from GAN:
    ![GAN Output](assets/gan.png)
 
-4. Train a Diffusion Model:
+5. Train a Diffusion Model:
    ```bash
    python src/train.py --verbose --gpu --data-dir dataset -m diffusion --batch 256 --epochs 100
    ```
@@ -94,10 +94,16 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
    Example output from Diffusion model:
    ![Diffusion Output](assets/diffusion.gif)
 
-5. Use TensorBoard or Weights & Biases to visualize training:
+6. Use TensorBoard or Weights & Biases to visualize training:
    ```bash
    python src/train.py --verbose --gpu --writer tensorboard --data-dir dataset -m diffusion --batch 256 --epochs 100
    python src/train.py --verbose --gpu --writer wandb --data-dir dataset -m diffusion --batch 256 --epochs 100
+   ```
+
+7. Use different learning rate schedulers:
+   ```bash
+   python src/train.py --data-dir dataset -m diffusion --scheduler linear
+   python src/train.py --data-dir dataset -m diffusion --scheduler cosine
    ```
 
 Replace `<model_name>` with the name of the model you trained.
