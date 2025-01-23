@@ -88,7 +88,7 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
 
 5. Train a Diffusion Model:
    ```bash
-   python src/train.py --verbose --gpu --data-dir dataset -m diffusion --batch 256 --epochs 100
+   python src/train.py --verbose --gpu --data-dir dataset -m diffusion --batch 256 --epochs 32 --weight-decay 0
    ```
 
    Example output from Diffusion model:
