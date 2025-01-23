@@ -92,15 +92,16 @@ Replace `<model_name>` with one of the available models: `autoencoder`, `conv_au
    ```
 
    Example output from Diffusion model:
+   
    ![Diffusion Output](assets/diffusion.gif)
 
-6. Use TensorBoard or Weights & Biases to visualize training:
+7. Use TensorBoard or Weights & Biases to visualize training:
    ```bash
    python src/train.py --verbose --gpu --writer tensorboard --data-dir dataset -m diffusion --batch 256 --epochs 100
    python src/train.py --verbose --gpu --writer wandb --data-dir dataset -m diffusion --batch 256 --epochs 100
    ```
 
-7. Use different learning rate schedulers:
+8. Use different learning rate schedulers:
    ```bash
    python src/train.py --data-dir dataset -m diffusion --scheduler linear
    python src/train.py --data-dir dataset -m diffusion --scheduler cosine
