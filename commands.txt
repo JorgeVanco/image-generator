@@ -9,4 +9,4 @@ tensorboard --logdir=./logs/autoencoder --bind_all
 python src/train.py --gpu --writer --overfit --data-dir dataset -m autoencoder --batch 8 --epochs 150 --checkpoint-dir logs/autoencoder/run_4
 
 python src/train.py --gpu --writer --data-dir dataset -m vae --batch 256 --epochs 500
-python src/train.py --gpu --writer --data-dir dataset -m diffusion --batch 100 --epochs 32
+python src/train.py --gpu --writer --data-dir dataset -m diffusion --weight-decay 0 --batch 100 --epochs 32
